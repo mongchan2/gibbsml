@@ -1,9 +1,9 @@
-import os
-import json
+import os # 파일관 관계 참고
+import json # json 파일을 사용할것임 
 from functools import reduce
-from math import gcd
+from math import gcd # gcd는 왠지 모르겠짐나 사용한다고 한다. 
 
-from ase.io import read
+from ase.io import read 
 from mendeleev import element
 import numpy as np
 from pymatgen.ext.matproj import MPRester
@@ -16,7 +16,7 @@ __version__ = "1.0"
 
 class Fingerprint:
 
-    def __init__(self, USER_API_KEY):
+    def __init__(self, USER_API_KEY): # 일단 Fingerprint 객체의 경우에는 USER_API_KEY를 인수로 하여 생성자가 실행된다. 
         """
         Parameters
         ----------
@@ -34,11 +34,15 @@ class Fingerprint:
                                      'spacegroup', 'ionic character']
         self.selected_features = None
         self.label = None
-
+        # 이 객체 자체가 가지는 property, 특히 implented_feature을 통해서 GPR을 진행한다.  
+        
+    # MP를 통해서 feature을 추출하는 과정을 보여준다. => 추후에 우리 방법대로 수정할 수 있는 가능성이 존재한다. 
     def extract_mp_features(self, id_mo, id_m1='', id_m2='',
                             id_oxygen='mp-12957',
                             selected_features='all', label=None,
                             mo_energy_correction=True):
+        # input으로 material project ID가 필요하다. id_m1과 m2의 경우에는 화학식을 통해서 얻어지는거고
+        # selective feature의 경우에는 어떤 feature을 포함할지에 대해 결정 
         """
         Generates a feature set for an oxidation for a given metal
         oxide (AxByOz) from the elements (A and B).
@@ -79,7 +83,7 @@ class Fingerprint:
 
         """
 
-        # Implemented features.
+        # Implemented features. OK 
         if selected_features == 'all':
             self.selected_features = self.implemented_features
         if selected_features == 'ellingham':
@@ -89,12 +93,12 @@ class Fingerprint:
         else:
             self.selected_features = selected_features
 
-        # Get ID for the oxidized state.
+        # Get ID for the oxidized state. 데이터가 없는 경우에 찾는 일종의 방법을 사용한다. 
         print("Getting information for " + id_mo)
         if "mp" not in id_mo:
             id_mo = self._find_id(id_mo)
         with MPRester(self.user_api_key) as m:
-            data_mo = m.get_data(id_mo)[0]
+            data_mo = m.get_data(id_mo)[0] # data_mo에는 Metal Oxide에 대한 data들이 들어있는 형태임 
 
         # Set oxygen energy and MO energy corrections.
         with MPRester(self.user_api_key) as m:
@@ -111,24 +115,24 @@ class Fingerprint:
         data_o2 = m.get_data(id_oxygen)[0]
         e_o2 = 2 * data_o2['energy'] / data_o2['unit_cell_formula']['O']
 
-        # Recognize whether is a unary or binary oxide.
-        n_elements = data_mo['nelements']
+        # Recognize whether is a unary or binary oxide. ternary 이상인 경우에는 오류 메시지를 출력한다. 
+        n_elements = data_mo['nelements'] # Metal Oxide의 화학식 내에 몇 개의 element가 존재하는지 확인한다. 이를 바탕으로 binary인지 uni인지 판별 
         binary_oxide = False
         if n_elements == 3:
             binary_oxide = True
         msg = "Only unary and binary oxides are implemented."
         assert n_elements <= 3, NotImplementedError(msg)
 
-        elements = data_mo['elements']
-        element_no_ox = np.array(elements)[~np.isin(elements, 'O')]
+        elements = data_mo['elements'] # 어떤 element가 있는지(ex. O, Mg) elements에 저장한다. 
+        element_no_ox = np.array(elements)[~np.isin(elements, 'O')] # np.array의 함수를 통해서 Oxide에서 oxygen을 제외한 다른 파일들을 마련한다. 
 
-        if binary_oxide is True:
-            element_m1, element_m2 = element_no_ox[0], element_no_ox[1]
+        if binary_oxide is True: # binary_oxide인 경우에 
+            element_m1, element_m2 = element_no_ox[0], element_no_ox[1] # element_m1에는 Mg, m2에는 Na 뭐 이런식으로 담을 수 있도록 
         else:
-            element_m1, element_m2 = element_no_ox[0], element_no_ox[0]
+            element_m1, element_m2 = element_no_ox[0], element_no_ox[0] # 이 부분은 그대로 진행한다. 
 
-        # Get info for M1 and M2.
-        if "mp" not in id_m1:
+        # Get info for M1 and M2. - 기본적으로 m1과 m2에 대한 정보가 제공되지 않는 경우에 대해서, 
+        if "mp" not in id_m1: 
             id_m1 = self._find_id(element_m1)
         if "mp" not in id_m2:
             id_m2 = self._find_id(element_m2)
@@ -571,13 +575,15 @@ class Fingerprint:
         target_features_values = np.reshape(target_features_values,
                                             (val_shape[0], -1))
         return target_features_values
-
+   
+    #   
     def get_labels(self):
         """
         Returns the list of species (labelled), e.g. CaO-mp-2605.
         """
         return list(self.fp.keys())
-
+    
+    #  species의 feature을 return 
     def get_features_names(self):
         """
         Returns a list containing the names of the features, e.g. formation
@@ -586,7 +592,8 @@ class Fingerprint:
         species = list(self.fp.keys())
         features_names = list(self.fp[species[0]]['features'].keys())
         return features_names
-
+    
+    # List of targer feature을 return 
     def get_target_features_names(self):
         """
         Returns the list of target features. These features are
@@ -597,6 +604,7 @@ class Fingerprint:
         features_names = list(self.fp[species[0]]['target_features'].keys())
         return features_names
 
+    # Fingerprint class를 json 파일로 저장한다.
     def dump_set(self, filename='fingerprint.json'):
         """
         Parameters
@@ -614,7 +622,8 @@ class Fingerprint:
         with open(filename, 'w') as fp:
             json.dump(fp_dict, fp)
 
-    def load_set(self, filename):
+    # json file을 load한다. 
+    def load_set(self, filename): 
         """
         Parameters
         ----------
