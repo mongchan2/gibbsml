@@ -167,24 +167,28 @@ class Fingerprint:
             os.remove('tmp_Atoms.cif') # write한 파일을 삭제함 
 
         atoms_m1, atoms_m2, atoms_mo = atoms # 각 atom에 대한 정보들이 atoms에 [m1, m2, mo] 이렇게 담겨있을텐데, m1을 atom_m1에 할당해주는 식으로 각 변수를 선언해주는 문법
-
+                                             # 예시로 돌렸을 때에는 Hf2가 나온 경우 len(atoms_m1) = 2의 결과를 도출했음 
         
         # Get formula unit for M1, M2 and MO.
         # 일단 기본 상태로는, Hf2Zr2O4처럼 존재하는 상황임. 따라서 unit formula에 따라서 이를 나누어주는 작업을 진행한다. 
         # 이렇게 하는 이유는 Ellingham Diagram에서 O2 1mole을 기준으로 반응이 일어난다고 가정하기 때문
         
-        n_m1, fu_m1 = 2 * (len(atoms_m1),) # a, b = (c,)의 형태의 문법은, a와 b에 각각 c를 넣어주는 형태로 볼 수 있음 
-        n_m2, fu_m2 = 2 * (len(atoms_m2),) # 왜 2를 곱하는지는 잘 모르겠지만, 쨋든 뭐 atom_m의 길이의 2 배를 각각 n_m, fu_m 이라는 변수에 넣어준다. 
-        fu_mo = self._get_atoms_per_unit_formula(atoms_mo) # mo에 대해서 atom_per_unit_formula를 불러와준다 
+        n_m1, fu_m1 = 2 * (len(atoms_m1),) # (2,)형태의 튜플을 *2를 통해서 (2,2)로 만들어준다. 튜플의 곱은 반복연산이다! 
+        n_m2, fu_m2 = 2 * (len(atoms_m2),) # 얘도 동일. (2,2) 형태로 만들어줘서 변수에 대입할 수 있도록 한다. 
+        fu_mo = self._get_atoms_per_unit_formula(atoms_mo) # mo에 대해서 atom_per_unit_formula를 불러와준다. 최대공약수 연산을 통해서 예제에서는 2를 도출 
+  
         n_m1_in_mo = self._get_number_of_atoms_element(atoms_mo,
                                                        symbol=element_m1)
-        n_m1_in_mo /= fu_mo
+        # element_m1(Hf)를 가진 개수를 합해서, n_m1_in_mo에 저장. 여기서는 Hf2Zr2O8의 구조가 mid를 통해서 입력되었으므로, Hf의 개수는 2가 된다. 
+        n_m1_in_mo /= fu_mo # formula unit에 따라서 이를 나누어준다 
         n_m2_in_mo = self._get_number_of_atoms_element(atoms_mo,
                                                        symbol=element_m2)
         n_m2_in_mo /= fu_mo
         n_ox_in_mo = self._get_number_of_atoms_element(atoms_mo, symbol='O')
         n_ox_in_mo /= fu_mo
 
+        # 결과적으로 여기까지 코드를 진행하면, HfZrO4라는 기본적인 식을 얻을 수 있다. 
+        # Hf(1 - n_m1_in_mo) Zr(1 - n_m2_in_mo) O(4 - n_ox_in_mo)라는 결과를 얻을 수 잇음 
         # self.fp에 raw data라는 항목을 새로 추가하고, 여기에 관련 자료를 담아주는 형태로 진행한다. 
         self.fp[self.label]['raw data'] = {}
         self.fp[self.label]['raw data']['data mo'] = data_mo
@@ -193,27 +197,31 @@ class Fingerprint:
 
         # Formation energy.
         # Get formation energies (a M1 + b M2 + O2 --> c M1xM2yOz).
+        # 이제 이전에 구한 formula_unit 을 통해서 실질적인 반응식에 응용하는 부분이다. 
         # 먼저 각 구조에 대한 에너지를 추출해서 
         e_m1, e_m2 = data_m1['energy'], data_m2['energy']
         e_mo = data_mo['energy']
-        # 각 unit에 대한 개수를 구한 이후에 
+        # 각 unit에 대한 개수를 구한 이후에 ( 1, 1, 4 )  
         x, y, z = n_m1_in_mo, n_m2_in_mo, n_ox_in_mo
         # O2에 대해서 맞춰주는 과정이 포함되기 때문에, 아래와 같은 식을 사용해준다 
         a = (2 / z) * x                     # c * x = a 가 성립해야 한다.
         b = (2 / z) * y                     # c * y = b 가 성립해야 한다. 
         c = 2 / z                           # 반드시 1mol의 O2가 들어가기 때문에, c*z = 2 가 성립한다. 이에 따라서 c = 2 / z
         
-        if not binary_oxide: # unary의 경우. 즉, AO2의 형태를 가지는 것들에 대해서이다.
+        if not binary_oxide: # unary의 경우, HfO2를 근사하는게 아니라 HfHfO2의 형식으로 나옴. 위에 보면  n_m2_in_mo가 이제 unary인지 binary인지에 따라서 변화 
             a /= 2
             b /= 2
-            
+        
+        # fu_mx의 형태로 나누어주는 이유는, 각 dH가 얻어온 id의 formula로 구성되어 있는 부분 때문이다. 
+                
         dH0 = c * (e_mo + e_mo_corr)/fu_mo
         dH0 -= a * e_m1/fu_m1
         dH0 -= b * e_m2/fu_m2
         dH0 -= e_o2
+        
         dH0 *= 96.485  # eV to kJ/mol.
         self.add_feature(description='formation energy (kJ/mol)', value=dH0)
-        # 계산을 굳이 이렇게 해야 하는건가.. 
+       
         balanced_reaction = None
         
         # 이 부분은 이제 reaction에 대한 표시를 하기 위한 문자열 생성하는 부분 
@@ -593,7 +601,6 @@ class Fingerprint:
         features_names = list(self.fp[species[0]]['features'].keys())
         features_values = []
         for i in species:
-            features_i = []
             for j in features_names:
                 features_i.append(self.fp[i]['features'][j])
             features_values.append(features_i)
