@@ -131,44 +131,48 @@ class Fingerprint:
         else:
             element_m1, element_m2 = element_no_ox[0], element_no_ox[0] # 이 부분은 그대로 진행한다. 
 
-        # Get info for M1 and M2. - 기본적으로 m1과 m2에 대한 정보가 제공되지 않는 경우에 대해서, 
+        # Get info for M1 and M2. - 기본적으로 m1과 m2에 대한 정보가 제공되지 않는 경우에 대해서, _find_id method를 사용하여 Material ID를 탐색한다. 
         if "mp" not in id_m1: 
             id_m1 = self._find_id(element_m1)
         if "mp" not in id_m2:
             id_m2 = self._find_id(element_m2)
+        # get_data 함수를 통해서 데이터를 확보하는데, 어떤 데이터들을 확보하는지 모르겠네. 구식 API를 사용해서, 이를 현재의 API로 변경하는 과정이 필요할것으로 예상 
         data_m1 = m.get_data(id_m1)[0]
         data_m2 = m.get_data(id_m2)[0]
-
-        # Get formula for the metals and oxides.
+        
+        
+        # Pretty formula의 형태로 공식을 받아오고 
         formula_mo = data_mo['pretty_formula']
         formula_m1 = data_m1['pretty_formula']
         formula_m2 = data_m2['pretty_formula']
 
-        # Set a label for the compound if not specified.
+        # Set a label for the compound if not specified. => 이 코드에서의 Label은, [formula_material_id] 의 format임
         self.label = label
         if self.label is None:
             self.label = formula_mo + '_' + id_mo
 
-        # Initialize dict with features and training features.
-        self.fp.update({self.label: {}})  # A dictionary for each entry.
-        self.fp[self.label]['target_features'] = {}
+        # self.fp의 경우에는 여기 전까지는 빈 디렉토리 상태임 
+        self.fp.update({self.label: {}})  # { label_name : {} } , 즉 { HfO2_mp_112 : { } } 이런 형태의 dictionary를 생성한다 
+        self.fp[self.label]['target_features'] = {} # HfO2_mp_112에 'target_features', 'features' 라는 키를 추가 
         self.fp[self.label]['features'] = {}
 
-        # Read files and convert to ASE Atoms objects.
+        # ASE Atoms object를 사용하여 포멧 변환을 진행하는 듯 
+        # cif(Crystallographic Information File) format으로 작성을 진행할 수 있다. 
         atoms = []
         for i in ['m1', 'm2', 'mo']:
-            f_atoms = open('tmp_Atoms.cif', 'w')
-            f_atoms.write(eval("data_" + i)['cif'])
+            f_atoms = open('tmp_Atoms.cif', 'w') # write형태로 파일을 open
+            f_atoms.write(eval("data_" + i)['cif']) # 쓰는건 알겠는데 뭔소린지는 잘 모르겠음 
             f_atoms.close()
-            atoms.append(read('tmp_Atoms.cif'))
-            os.remove('tmp_Atoms.cif')
+            atoms.append(read('tmp_Atoms.cif')) # atoms라는 오브젝트에 파일 내용을 써준다. 여기서의 read함수는, atom에서 가져온 파일 포멧임 
+            os.remove('tmp_Atoms.cif') # write한 파일을 삭제함 
 
-        atoms_m1, atoms_m2, atoms_mo = atoms
+        atoms_m1, atoms_m2, atoms_mo = atoms # 각 atom에 대한 정보들이 atoms에 [m1, m2, mo] 이렇게 담겨있을텐데, m1을 atom_m1에 할당해주는 식으로 각 변수를 선언해주는 문법
 
         # Get formula unit for M1, M2 and MO.
-        n_m1, fu_m1 = 2 * (len(atoms_m1),)
-        n_m2, fu_m2 = 2 * (len(atoms_m2),)
-        fu_mo = self._get_atoms_per_unit_formula(atoms_mo)
+        # formula unit?
+        n_m1, fu_m1 = 2 * (len(atoms_m1),) # a, b = (c,)의 형태의 문법은, a와 b에 각각 c를 넣어주는 형태로 볼 수 있음 
+        n_m2, fu_m2 = 2 * (len(atoms_m2),) # 왜 2를 곱하는지는 잘 모르겠지만, 쨋든 뭐 atom_m의 길이의 2 배를 각각 n_m, fu_m 이라는 변수에 넣어준다. 
+        fu_mo = self._get_atoms_per_unit_formula(atoms_mo) # mo에 대해서 atom_per_unit_formula를 불러와준다 
         n_m1_in_mo = self._get_number_of_atoms_element(atoms_mo,
                                                        symbol=element_m1)
         n_m1_in_mo /= fu_mo
@@ -178,7 +182,7 @@ class Fingerprint:
         n_ox_in_mo = self._get_number_of_atoms_element(atoms_mo, symbol='O')
         n_ox_in_mo /= fu_mo
 
-        # Update dictionary with extra info.
+        # self.fp에 raw data라는 항목을 새로 추가하고, 여기에 관련 자료를 담아주는 형태로 진행한다. 
         self.fp[self.label]['raw data'] = {}
         self.fp[self.label]['raw data']['data mo'] = data_mo
         self.fp[self.label]['raw data']['data m1'] = data_m1
@@ -455,7 +459,8 @@ class Fingerprint:
 
         print("Fingerprint for " + self.label + " completed.")
 
-    def _find_id(self, compound):
+    # 기본적으로 ID를 명시하지 않은 경우에 대해서, ID를 명시할 수 있도록 하는 변수가 된다. 예를 들어 HfO2면 거기서 Hf => 여러가지 구조가 나올거임  
+    def _find_id(self, compound): 
         """ Find Materials Project ID for a given compound.
 
             Parameters
@@ -472,13 +477,17 @@ class Fingerprint:
                 Materials Project compound ID.
 
         """
-
-        with MPRester(self.user_api_key) as m:
+        # 먼저 MPRester을 사용해서 검색을 진행한다. elasticity,e_above_hull등을 통해서 검색을 진행한다 => ex) Hf의 여러가지 상태가 존재함 
+        
+        with MPRester(self.user_api_key) as m: 
             info_MOs = m.get_entries(compound, inc_structure='final',
                                         property_data=['elasticity',
                                                        'e_above_hull',
                                                        'Correction'],
                                         sort_by_e_above_hull=True)
+        # 불러온 엔트리는 List or Dictionary의 자료 구조를 가질 것이고. 
+        # 불러온 모든 엔트리에 대해서 반복 진행. 일단 e_above_hull 이 가장 낮은것이 아래에 배열이 될 것이고, 이를 통해서 에너지를 얻어낸다. 
+        # 에너지가 가장 낮고, 그리고 elasticity가 존재하는 material을 하나 불러올 수 있도록 한다. 
             for i in range(len(info_MOs)):
                 id_compound = info_MOs[i].__dict__['entry_id']
                 elasticity = m.get_data(id_compound)[0]['elasticity']
@@ -486,8 +495,9 @@ class Fingerprint:
                     break
             if not elasticity:
                 id_compound = info_MOs[0].__dict__['entry_id']
+        # 해당 id를 return하면서 종료한다. 
         return id_compound
-
+        
     def add_feature(self, description, value):
         """
         Parameters
@@ -529,11 +539,14 @@ class Fingerprint:
                 n_atom += 1
         return n_atom
 
+    # atoms라는 list에 있는 각각의 요소에 대해서, atom.symbol에 대해서 추출. 이거를 제대로 알려면 ASE를 알아야할듯 
+    # 중복되는 원소를 제거한다. 뭐 HfO2가 들어오면 Hf랑 O만 symbols에 대해서 남는 형태인거지
+    # 최대공약수를 통해서, 
     def _get_atoms_per_unit_formula(self, atoms):
         symbols = []
         for atom in atoms:
             symbols.append(atom.symbol)
-        a = np.unique(symbols, return_counts=True)[1]
+        a = np.unique(symbols, return_counts=True)[1] # HfO2가있으면, [0]에는 ['Hf', 'O']가, [1]에는 [1 , 2] 가 저장되어 있는 형태이다. 
         return reduce(gcd, a)
 
     def _get_number_of_species(self, atoms):
