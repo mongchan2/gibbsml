@@ -168,8 +168,11 @@ class Fingerprint:
 
         atoms_m1, atoms_m2, atoms_mo = atoms # 각 atom에 대한 정보들이 atoms에 [m1, m2, mo] 이렇게 담겨있을텐데, m1을 atom_m1에 할당해주는 식으로 각 변수를 선언해주는 문법
 
+        
         # Get formula unit for M1, M2 and MO.
         # 일단 기본 상태로는, Hf2Zr2O4처럼 존재하는 상황임. 따라서 unit formula에 따라서 이를 나누어주는 작업을 진행한다. 
+        # 이렇게 하는 이유는 Ellingham Diagram에서 O2 1mole을 기준으로 반응이 일어난다고 가정하기 때문
+        
         n_m1, fu_m1 = 2 * (len(atoms_m1),) # a, b = (c,)의 형태의 문법은, a와 b에 각각 c를 넣어주는 형태로 볼 수 있음 
         n_m2, fu_m2 = 2 * (len(atoms_m2),) # 왜 2를 곱하는지는 잘 모르겠지만, 쨋든 뭐 atom_m의 길이의 2 배를 각각 n_m, fu_m 이라는 변수에 넣어준다. 
         fu_mo = self._get_atoms_per_unit_formula(atoms_mo) # mo에 대해서 atom_per_unit_formula를 불러와준다 
@@ -196,12 +199,14 @@ class Fingerprint:
         # 각 unit에 대한 개수를 구한 이후에 
         x, y, z = n_m1_in_mo, n_m2_in_mo, n_ox_in_mo
         # O2에 대해서 맞춰주는 과정이 포함되기 때문에, 아래와 같은 식을 사용해준다 
-        a = (2 / z) * x     
-        b = (2 / z) * y
-        c = 2 / z
-        if not binary_oxide: # binary가 아닌 경우에 대해서. 
+        a = (2 / z) * x                     # c * x = a 가 성립해야 한다.
+        b = (2 / z) * y                     # c * y = b 가 성립해야 한다. 
+        c = 2 / z                           # 반드시 1mol의 O2가 들어가기 때문에, c*z = 2 가 성립한다. 이에 따라서 c = 2 / z
+        
+        if not binary_oxide: # unary의 경우. 즉, AO2의 형태를 가지는 것들에 대해서이다.
             a /= 2
             b /= 2
+            
         dH0 = c * (e_mo + e_mo_corr)/fu_mo
         dH0 -= a * e_m1/fu_m1
         dH0 -= b * e_m2/fu_m2
@@ -210,6 +215,7 @@ class Fingerprint:
         self.add_feature(description='formation energy (kJ/mol)', value=dH0)
         # 계산을 굳이 이렇게 해야 하는건가.. 
         balanced_reaction = None
+        
         # 이 부분은 이제 reaction에 대한 표시를 하기 위한 문자열 생성하는 부분 
         if not binary_oxide:
             balanced_reaction = str(2 * a) + " " + formula_m1 + " + O2"
