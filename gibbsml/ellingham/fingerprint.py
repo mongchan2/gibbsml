@@ -228,9 +228,11 @@ class Fingerprint:
         # -------------------------------------------------------
         '''
         여기부터는 일종의 self.fp[self.label]['features']에 내용을 추가하는 부분이다
-        self.fp[self.label]['features']['특정한 description] = 특정 value의 형식으로 내용을 저장 
+        self.fp[self.label]['features']['특정한 description'] = 특정 value의 형식으로 내용을 저장 
         그러면 접근할 때 굉장히 복잡할 것으로 생각하는데, 차라리 구조체같은거 쓰는게 낫지 않을까. 아니면 클래스에서 컴포넌트를 늘리던지 
         element에 쓰는 요소들은 어떤 이유인지 모르겠짐지만 mendeleev라는걸 사용한다. 
+        self.fp[self.label]['features']['특정한 description] => 이러한 format들이 계속해서 저장된 이후에, get관련 함수를 통해서 train data에 정보를 전달
+        traing_set에서 이 정보들을 바탕으로 GPR에 대한 학습을 진행시킨다. 
         '''
         # -------------------------------------------------------
         # Stoichiometry. self.selected_features의 경우에는 특별한 옵션을 주지 않는 경우 이 아래에 있는 모든 if문에 대한 분기는 yes가 된다. 
@@ -570,7 +572,8 @@ class Fingerprint:
             symbols.append(atom.symbol)
         a = np.unique(symbols)
         return len(a), a
-
+    
+    # feature을 바탕으로, feature_name을 명시하지 않은 경우에 대해서는 feature_name을 명시하는 결과가 나온다. 
     def get_feature_value(self, feature_name):
         species = list(self.fp.keys())
         feature_value = []
