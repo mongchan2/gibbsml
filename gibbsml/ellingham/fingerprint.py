@@ -595,16 +595,17 @@ class Fingerprint:
             feature = self.fp[i]['features'][feature_name]
             feature_value.append([feature])
         return feature_value
-
+    
+    # 하나의 산화물에 대해서만 그래프를 그린다면, species에 대한 것은 하나로 나옴 
     def get_features_values(self):
         species = list(self.fp.keys())
-        features_names = list(self.fp[species[0]]['features'].keys())
-        features_values = []
-        for i in species:
-            for j in features_names:
+        features_names = list(self.fp[species[0]]['features'].keys()) # feature에 대한 내용이 뭐가 있는지 탐색 
+        features_values = [] # features values라는 것을 만들고 
+        for i in species: # 산화물 각각에 대해서 적용하는거임 
+            for j in features_names: # feature name에 대해서, 
                 features_i.append(self.fp[i]['features'][j])
-            features_values.append(features_i)
-        val_shape = np.shape(features_values)
+            features_values.append(features_i)  # feature values의 경우에는 [[f_HfO2] [f_ZrO2] [f_HfZrO2]] 뭐 이런 식으로 배열될거임  
+        val_shape = np.shape(features_values)   # 이거를 input에 적합한 모양으로 재설계해서 진행하면 된다는거임. 
         features_values = np.reshape(features_values,
                                      (val_shape[0], val_shape[1]))
         return features_values
