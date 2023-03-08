@@ -682,3 +682,7 @@ class Fingerprint:
         """
         with open(filename, 'r') as fp:
             self.__dict__ = json.load(fp)
+        # 여기서 sefl.__dict__의 경우에는 self 내부의 변수에 대한 접근을 편리하게 한다. 
+        # self.__dict__['name'] 의 경우에는 self의 name 변수에 접근하는 거라고 생각하면 된다.
+        # 결과적으로, 위의 json같은 경우에는 내부에있는 어떤 varible도 변경할 수 있는 것이다.
+        # 이를 통해서 Featrure같은 디렉토리 형태를 변경하고 덮어씌울 수도 있게 되는 것. 따로 add_feature등이 필요하지 않은 함수가 되는 것이다. 
